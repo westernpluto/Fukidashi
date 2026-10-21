@@ -8,40 +8,23 @@ on:
 jobs:
   build:
     runs-on: macos-26
-    timeout-minutes: 40
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unzip project
-        run: unzip -q -o Fukidashi.zip
+      - name: Unzip project (when uploaded as Fukidashi.zip)
+        run: if [ -f Fukidashi.zip ]; then unzip -q -o Fukidashi.zip; fi
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
 
-      - name: Generate Xcode project
-        working-directory: Fukidashi
+      - name: Build
         run: |
-          brew install xcodegen
-          xcodegen generate
-
-      - name: Build (unsigned)
-        working-directory: Fukidashi
-        run: |
-          xcodebuild -project Fukidashi.xcodeproj -scheme Fukidashi \
-            -configuration Release -sdk iphoneos \
-            -destination 'generic/platform=iOS' -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            build > build.log 2>&1 || { grep -E "error:" build.log | head -40; exit 1; }
-
-      - name: Package IPA
-        working-directory: Fukidashi
-        run: |
-          mkdir -p Payload
-          cp -R build/Build/Products/Release-iphoneos/Fukidashi.app Payload/
-          zip -qry Fukidashi.ipa Payload
+          cd "$( [ -f Fukidashi/project.yml ] && echo Fukidashi || echo . )"
+          bash ci/build.sh
 
       - uses: actions/upload-artifact@v4
         with:
           name: Fukidashi-ipa
-          path: Fukidashi/Fukidashi.ipa
+          path: "**/Fukidashi.ipa"
